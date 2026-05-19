@@ -39,7 +39,6 @@
                 <artifactId>classfinal-maven-plugin</artifactId>
                 <version>1.2.1</version>
                 <configuration>
-                    <password>#</password>
                     <packages>com.test.demo</packages>
                 </configuration>
                 <executions>

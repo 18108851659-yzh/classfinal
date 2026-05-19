@@ -1,0 +1,61 @@
+name: Build Native Libraries
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'classfinal-core/src/main/jni/**'
+      - 'classfinal-core/build_native_*/**'
+      - '.github/workflows/build-native.yml'
+      - '.gitee/pipelines/build-native.yml'
+
+stages:
+  - name: build-macos
+    displayName: 编译 macOS Universal Binary
+    tasks:
+      - task: build@macos
+        displayName: 编译 jnilib
+        inputs:
+          macosVersion: '15'
+          commands: |
+            echo "JAVA_HOME: $JAVA_HOME"
+            cd classfinal-core
+            chmod +x build_native_mac.sh
+            ./build_native_mac.sh
+          artifacts:
+            - name: macos-native
+              path: classfinal-core/src/main/resources/libclassfinal_native.jnilib
+
+  - name: build-linux
+    displayName: 编译 Linux x86_64
+    tasks:
+      - task: build@linux
+        displayName: 编译 .so
+        inputs:
+          image: centos:7
+          commands: |
+            yum install -y gcc make
+            cd classfinal-core
+            chmod +x build_native_linux.sh
+            export JAVA_HOME=/usr/lib/jvm/java
+            ./build_native_linux.sh
+          artifacts:
+            - name: linux-native
+              path: classfinal-core/src/main/resources/libclassfinal_native.so
+
+  - name: build-full
+    displayName: 构建完整项目
+    dependsOn: [build-macos, build-linux]
+    tasks:
+      - task: build@linux
+        displayName: Maven 构建
+        inputs:
+          image: maven:3.9-eclipse-temurin-21
+          commands: |
+            # 下载 macOS 产物
+            # 下载 Linux 产物
+            # 放入 resources 目录
+            mvn clean package -DskipTests
+          artifacts:
+            - name: classfinal-fatjar
+              path: classfinal-fatjar/target/classfinal-fatjar-1.2.1.jar

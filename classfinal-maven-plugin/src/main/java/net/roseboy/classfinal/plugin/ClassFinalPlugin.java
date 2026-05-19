@@ -27,12 +27,6 @@ public class ClassFinalPlugin extends AbstractMojo {
     //MavenProject
     @Parameter(defaultValue = "${project}", readonly = true, required = true)
     private MavenProject project;
-    //密码
-    @Parameter(required = true)
-    private String password;
-    //机器码
-    @Parameter
-    private String code;
     //加密的内部-lib/jar名称
     @Parameter
     private String libjars;
@@ -75,8 +69,7 @@ public class ClassFinalPlugin extends AbstractMojo {
         List<String> cfgFileList = StrUtils.toList(cfgfiles);
         includeJarList.add("-");
 
-        JarEncryptor encryptor = new JarEncryptor(targetJar, password.trim().toCharArray());
-        encryptor.setCode(StrUtils.isEmpty(code) ? null : code.trim().toCharArray());
+        JarEncryptor encryptor = new JarEncryptor(targetJar);
         encryptor.setPackages(packageList);
         encryptor.setIncludeJars(includeJarList);
         encryptor.setExcludeClass(excludeClassList);

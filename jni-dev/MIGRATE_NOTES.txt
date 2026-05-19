@@ -1,0 +1,81 @@
+ClassFinal JNI 迁移说明
+========================
+
+本目录包含从混淆项目 (classfinal-core) 中提取的 JNI 开发相关文件，
+用于迁移到未混淆的项目中。
+
+目录结构
+--------
+jni-dev/
+├── docs/
+│   └── JNI_DEVELOPER_GUIDE.md   # JNI 开发维护指南（完整文档）
+├── jni/
+│   ├── classfinal_native.c      # Native C 实现（核心源码）
+│   └── i_i_i_NativeDecryptor.h  # JNI 头文件（混淆包名，需重新生成）
+├── scripts/
+│   ├── build_native_win.bat     # Windows 编译脚本
+│   ├── build_native_linux.sh    # Linux 编译脚本
+│   └── build_native_mac.sh      # macOS 编译脚本
+├── java/
+│   └── NativeDecryptor.java     # Java JNI 接口类（混淆版，仅供参考）
+├── lib/
+│   ├── classfinal_native.dll    # Windows 编译产物
+│   ├── classfinal_native.exp    # Windows 导出文件
+│   ├── classfinal_native.lib    # Windows 库文件
+│   └── classfinal_native.obj    # Windows 目标文件
+└── MIGRATE_NOTES.txt            # 本文件
+
+
+迁移步骤
+--------
+
+1. 复制文件到新项目
+   将 jni/ 和 scripts/ 目录复制到新项目的 classfinal-core 模块下，
+   保持如下结构：
+   classfinal-core/
+   ├── src/main/jni/classfinal_native.c
+   ├── build_native_win.bat
+   ├── build_native_linux.sh
+   └── build_native_mac.sh
+
+2. 重新创建 Java JNI 接口类
+   在新项目中创建 NativeDecryptor.java，使用未混淆的包名，
+   例如 net.roseboy.classfinal.jni.NativeDecryptor。
+   参考 java/NativeDecryptor.java 中的接口定义：
+   - native byte[] nativeGetPwd()
+   - native char[] nativeDeriveKey()
+   - native byte[] nativeDecrypt(byte[] encryptedData, byte[] key)
+   - native byte[] nativeMd5(byte[] data)
+   - native byte[] nativeFullDecrypt(byte[] encryptedData, String fileName, char[] derivedKey)
+
+3. 重新生成 JNI 头文件
+   新项目的包名不同，必须重新生成头文件：
+   javac -h src/main/jni -cp target/classes src/main/java/net/roseboy/classfinal/jni/NativeDecryptor.java
+   生成的新头文件名将是 net_roseboy_classfinal_jni_NativeDecryptor.h
+
+4. 更新 classfinal_native.c 中的 #include
+   将：
+     #include "i_i_i_NativeDecryptor.h"
+   改为：
+     #include "net_roseboy_classfinal_jni_NativeDecryptor.h"
+   同时更新所有 JNI 函数名，例如：
+     Java_i_i_i_NativeDecryptor_nativeGetPwd
+   改为：
+     Java_net_roseboy_classfinal_jni_NativeDecryptor_nativeGetPwd
+
+5. 更新编译脚本中的路径
+   scripts/ 中的编译脚本路径基于 classfinal-core 目录结构，
+   迁移后需确认路径是否匹配，特别是：
+   - JNI_DIR: 指向 src/main/jni
+   - OUTPUT_DIR: 指向 src/main/resources
+
+6. 重新编译 Native 库
+   在三个平台上分别执行编译脚本，生成新的库文件。
+
+
+注意事项
+--------
+- i_i_i_NativeDecryptor.h 是基于混淆包名 i.i.i 生成的，不能直接使用
+- classfinal_native.c 中的函数名包含混淆包名，必须修改
+- lib/ 目录下的编译产物是基于混淆包名编译的，迁移后需要重新编译
+- 编译脚本中的路径是相对于 classfinal-core 目录的，需按新项目结构调整

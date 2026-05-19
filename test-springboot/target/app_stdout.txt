@@ -1,0 +1,32 @@
+
+=========================================================
+=                                                       =
+=      Java Class Encryption Tool v1.2.1   by Mr.K      =
+=                                                       =
+=========================================================
+
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::               (v2.7.18)
+
+2026-05-19 08:37:15.819  INFO 25472 --- [           main] com.test.demo.Application                : Starting Application v1.0.0 using Java 11.0.2 on 00gijiic-bpX9nY with PID 25472 (E:\baohu\classfinal\test-springboot\target\test-springboot-1.0.0-encrypted.jar started by Administrator in E:\baohu\classfinal\test-springboot\target)
+2026-05-19 08:37:15.848  INFO 25472 --- [           main] com.test.demo.Application                : No active profile set, falling back to 1 default profile: "default"
+2026-05-19 08:37:20.529  INFO 25472 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8080 (http)
+2026-05-19 08:37:20.872  INFO 25472 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-05-19 08:37:20.876  INFO 25472 --- [           main] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.83]
+2026-05-19 08:37:21.275  INFO 25472 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-05-19 08:37:21.280  INFO 25472 --- [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 5079 ms
+2026-05-19 08:37:23.906  INFO 25472 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8080 (http) with context path ''
+2026-05-19 08:37:23.941  INFO 25472 --- [           main] com.test.demo.Application                : Started Application in 11.498 seconds (JVM running for 21.105)
+========================================
+  Spring Boot Test App Started!
+  Visit: http://localhost:8080/hello
+========================================
+2026-05-19 08:37:43.873  INFO 25472 --- [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-05-19 08:37:43.877  INFO 25472 --- [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-05-19 08:37:43.887  INFO 25472 --- [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 2 ms

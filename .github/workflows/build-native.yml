@@ -1,0 +1,196 @@
+name: Build Native Libraries
+
+on:
+  workflow_dispatch:
+    inputs:
+      java_version:
+        description: 'JDK version for Maven build'
+        required: false
+        default: '21'
+        type: choice
+        options:
+          - '11'
+          - '17'
+          - '21'
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'classfinal-core/src/main/jni/**'
+      - 'classfinal-core/build_native_*/**'
+      - '.github/workflows/build-native.yml'
+
+jobs:
+  # ============================================================
+  # macOS: 编译 Universal Binary (x86_64 + arm64)
+  # Apple Clang 支持交叉编译，一个 arm64 runner 即可生成双架构产物
+  # ============================================================
+  build-macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ github.event.inputs.java_version || '21' }}
+          distribution: 'temurin'
+
+      - name: Build Universal Binary (x86_64 + arm64)
+        run: |
+          cd classfinal-core
+          chmod +x build_native_mac.sh
+          export JAVA_HOME=$JAVA_HOME_21_arm64
+          ./build_native_mac.sh
+
+      - name: Verify binary
+        run: |
+          echo "=== File info ==="
+          file classfinal-core/src/main/resources/libclassfinal_native.jnilib
+          echo ""
+          echo "=== Exported symbols ==="
+          nm -gU classfinal-core/src/main/resources/libclassfinal_native.jnilib | grep " T " || true
+          echo ""
+          echo "=== Architectures ==="
+          lipo -info classfinal-core/src/main/resources/libclassfinal_native.jnilib
+
+      - name: Upload macOS native lib
+        uses: actions/upload-artifact@v4
+        with:
+          name: libclassfinal_native-macos-universal
+          path: classfinal-core/src/main/resources/libclassfinal_native.jnilib
+          retention-days: 30
+
+  # ============================================================
+  # Windows: 编译 x64 DLL
+  # ============================================================
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ github.event.inputs.java_version || '21' }}
+          distribution: 'temurin'
+
+      - name: Setup MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build DLL
+        shell: cmd
+        run: |
+          set JNI_DIR=classfinal-core\src\main\jni
+          set OUTPUT_DIR=classfinal-core\src\main\resources
+          cl.exe /I"%JAVA_HOME%\include" /I"%JAVA_HOME%\include\win32" /I"%JNI_DIR%" ^
+             /LD /O2 /MD ^
+             "%JNI_DIR%\classfinal_native.c" ^
+             /Fe:"%OUTPUT_DIR%\classfinal_native.dll" ^
+             /link
+
+      - name: Verify DLL
+        shell: pwsh
+        run: |
+          Write-Host "=== File info ==="
+          Get-Item classfinal-core\src\main\resources\classfinal_native.dll | Format-List Name, Length
+          Write-Host "=== Exported symbols ==="
+          dumpbin /exports classfinal-core\src\main\resources\classfinal_native.dll
+
+      - name: Upload Windows native lib
+        uses: actions/upload-artifact@v4
+        with:
+          name: classfinal_native-windows-x64
+          path: classfinal-core/src/main/resources/classfinal_native.dll
+          retention-days: 30
+
+  # ============================================================
+  # Linux: 编译 x86_64 .so
+  # ============================================================
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ github.event.inputs.java_version || '21' }}
+          distribution: 'temurin'
+
+      - name: Build .so
+        run: |
+          cd classfinal-core
+          chmod +x build_native_linux.sh
+          ./build_native_linux.sh
+
+      - name: Verify .so
+        run: |
+          echo "=== File info ==="
+          file classfinal-core/src/main/resources/libclassfinal_native.so
+          echo ""
+          echo "=== Exported symbols ==="
+          nm -D classfinal-core/src/main/resources/libclassfinal_native.so | grep " T " || true
+
+      - name: Upload Linux native lib
+        uses: actions/upload-artifact@v4
+        with:
+          name: libclassfinal_native-linux-x64
+          path: classfinal-core/src/main/resources/libclassfinal_native.so
+          retention-days: 30
+
+  # ============================================================
+  # 汇总: 将三平台 native 库收集到一起，构建完整项目
+  # ============================================================
+  build-full:
+    needs: [build-macos, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ github.event.inputs.java_version || '21' }}
+          distribution: 'temurin'
+
+      - name: Download macOS native lib
+        uses: actions/download-artifact@v4
+        with:
+          name: libclassfinal_native-macos-universal
+          path: classfinal-core/src/main/resources/
+
+      - name: Download Windows native lib
+        uses: actions/download-artifact@v4
+        with:
+          name: classfinal_native-windows-x64
+          path: classfinal-core/src/main/resources/
+
+      - name: Download Linux native lib
+        uses: actions/download-artifact@v4
+        with:
+          name: libclassfinal_native-linux-x64
+          path: classfinal-core/src/main/resources/
+
+      - name: Verify all native libs
+        run: |
+          echo "=== Native libraries in resources ==="
+          ls -lh classfinal-core/src/main/resources/classfinal_native.* classfinal-core/src/main/resources/libclassfinal_native.*
+
+      - name: Build full project
+        run: mvn clean package -DskipTests
+
+      - name: Upload fat jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: classfinal-fatjar-${{ github.sha }}
+          path: classfinal-fatjar/target/classfinal-fatjar-1.2.1.jar
+          retention-days: 30
+
+      - name: Upload maven plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: classfinal-maven-plugin-${{ github.sha }}
+          path: classfinal-maven-plugin/target/classfinal-maven-plugin-1.2.1.jar
+          retention-days: 30
