@@ -34,7 +34,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: ${{ github.event.inputs.java_version || '21' }}
+          java-version: '17'
           distribution: 'temurin'
 
       - name: Show environment
@@ -88,8 +88,8 @@ jobs:
           cd test-springboot/target
 
           echo "=== Starting encrypted jar with javaagent ==="
-          java -javaagent:test-springboot-1.0.0.jar \
-            -jar test-springboot-1.0.0.jar \
+          java -javaagent:test-springboot-1.0.0-encrypted.jar \
+            -jar test-springboot-1.0.0-encrypted.jar \
             --server.port=8080 \
             > app.log 2>&1 &
           APP_PID=$!
@@ -173,7 +173,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: ${{ github.event.inputs.java_version || '21' }}
+          java-version: '17'
           distribution: 'temurin'
 
       # Step 1: 编译 Mac Native 库
@@ -191,9 +191,7 @@ jobs:
       - name: Build unencrypted test Spring Boot app
         run: |
           cd test-springboot
-          # 使用 maven 属性跳过 classfinal 插件执行
-          mvn clean package -DskipTests -Dclassfinal.skip=true 2>&1 || \
-          mvn clean package -DskipTests 2>&1 | tail -30
+          mvn clean package -DskipTests -Dclassfinal.skip=true 2>&1 | tail -30
           ls -lh target/test-springboot-1.0.0.jar
 
       # Step 4: 使用 classfinal-fatjar 加密
@@ -204,9 +202,10 @@ jobs:
           java -jar ../../classfinal-fatjar/target/classfinal-fatjar-1.2.1.jar \
             -file test-springboot-1.0.0.jar \
             -packages com.test.demo \
+            -cfgfiles "*.properties" \
             -Y 2>&1
           echo "=== Encrypted jar ==="
-          ls -lh test-springboot-1.0.0.jar
+          ls -lh test-springboot-1.0.0-encrypted.jar
 
       # Step 5: 启动加密后的 jar 并验证
       - name: Start encrypted jar and verify
@@ -214,8 +213,8 @@ jobs:
           cd test-springboot/target
 
           echo "=== Starting encrypted jar with javaagent ==="
-          java -javaagent:test-springboot-1.0.0.jar \
-            -jar test-springboot-1.0.0.jar \
+          java -javaagent:test-springboot-1.0.0-encrypted.jar \
+            -jar test-springboot-1.0.0-encrypted.jar \
             --server.port=8081 \
             > app.log 2>&1 &
           APP_PID=$!
@@ -263,7 +262,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: ${{ github.event.inputs.java_version || '21' }}
+          java-version: '17'
           distribution: 'temurin'
 
       - name: Build Linux native library
@@ -285,8 +284,8 @@ jobs:
         run: |
           cd test-springboot/target
 
-          java -javaagent:test-springboot-1.0.0.jar \
-            -jar test-springboot-1.0.0.jar \
+          java -javaagent:test-springboot-1.0.0-encrypted.jar \
+            -jar test-springboot-1.0.0-encrypted.jar \
             --server.port=8080 \
             > app.log 2>&1 &
           APP_PID=$!

@@ -45,6 +45,9 @@ public class ClassFinalPlugin extends AbstractMojo {
     //调试
     @Parameter(defaultValue = "false")
     private Boolean debug;
+    //跳过加密
+    @Parameter(defaultValue = "false", property = "classfinal.skip")
+    private Boolean skip;
 
     /**
      * 打包的时候执行
@@ -53,6 +56,10 @@ public class ClassFinalPlugin extends AbstractMojo {
      * @throws MojoFailureException   MojoFailureException
      */
     public void execute() throws MojoExecutionException, MojoFailureException {
+        if (skip) {
+            getLog().info("ClassFinal encryption skipped (classfinal.skip=true)");
+            return;
+        }
         Const.DEBUG = debug;
         Log logger = getLog();
         Build build = project.getBuild();
