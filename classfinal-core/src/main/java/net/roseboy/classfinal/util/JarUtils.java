@@ -1,9 +1,7 @@
 package net.roseboy.classfinal.util;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.List;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -18,6 +16,27 @@ public class JarUtils {
     public static final String[] DLE_FILES = {".DS_Store", "Thumbs.db"};
 
     /**
+     * 获取jar文件中的条目名称列表（保持原始顺序）
+     */
+    public static List<String> getEntryNames(String jarPath) {
+        List<String> names = new ArrayList<>();
+        ZipFile zipFile = null;
+        try {
+            zipFile = new ZipFile(new File(jarPath));
+            Enumeration<?> entries = zipFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = (ZipEntry) entries.nextElement();
+                names.add(entry.getName());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            IoUtils.close(zipFile);
+        }
+        return names;
+    }
+
+    /**
      * 把目录压缩成jar
      *
      * @param jarDir    需要打包的目录
@@ -25,6 +44,18 @@ public class JarUtils {
      * @return 打包出的jar/war文件路径
      */
     public static String doJar(String jarDir, String targetJar) {
+        return doJar(jarDir, targetJar, null);
+    }
+
+    /**
+     * 把目录压缩成jar，支持按原始条目顺序写入
+     *
+     * @param jarDir            需要打包的目录
+     * @param targetJar         打包出的jar/war文件路径
+     * @param originalEntryOrder 原始jar条目顺序，用于保持Spring Boot类加载顺序
+     * @return 打包出的jar/war文件路径
+     */
+    public static String doJar(String jarDir, String targetJar, List<String> originalEntryOrder) {
         File jarDirFile = new File(jarDir);
         //枚举jarDir下的所有文件以及目录
         List<File> files = new ArrayList<>();
@@ -42,39 +73,37 @@ public class JarUtils {
             out = new FileOutputStream(jar);
             zos = new ZipOutputStream(out);
 
+            // 构建文件名到File的映射
+            java.util.Map<String, File> fileMap = new java.util.LinkedHashMap<>();
             for (File file : files) {
                 if (isDel(file)) {
                     continue;
                 }
                 String fileName = file.getAbsolutePath().substring(jarDirFile.getAbsolutePath().length() + 1);
                 fileName = fileName.replace(File.separator, "/");
-                //目录，添加一个目录entry
-                if (file.isDirectory()) {
-                    ZipEntry ze = new ZipEntry(fileName + "/");
-                    ze.setTime(System.currentTimeMillis());
-                    zos.putNextEntry(ze);
-                    zos.closeEntry();
+                fileMap.put(fileName, file);
+            }
+
+            // 已写入的条目名集合
+            java.util.Set<String> written = new java.util.HashSet<>();
+
+            // 如果有原始条目顺序，先按原始顺序写入
+            if (originalEntryOrder != null && !originalEntryOrder.isEmpty()) {
+                for (String entryName : originalEntryOrder) {
+                    File file = fileMap.get(entryName);
+                    if (file == null) {
+                        // 原始条目在加密后可能不存在（如META-INF/maven/被删除），跳过
+                        continue;
+                    }
+                    writeEntry(zos, entryName, file);
+                    written.add(entryName);
                 }
-                //jar文件，需要写crc信息
-                else if (fileName.endsWith(".jar")) {
-                    byte[] bytes = IoUtils.readFileToByte(file);
-                    ZipEntry ze = new ZipEntry(fileName);
-                    ze.setMethod(ZipEntry.STORED);
-                    ze.setSize(bytes.length);
-                    ze.setTime(System.currentTimeMillis());
-                    ze.setCrc(IoUtils.crc32(bytes));
-                    zos.putNextEntry(ze);
-                    zos.write(bytes);
-                    zos.closeEntry();
-                }
-                //其他文件直接写入
-                else {
-                    ZipEntry ze = new ZipEntry(fileName);
-                    ze.setTime(System.currentTimeMillis());
-                    zos.putNextEntry(ze);
-                    byte[] bytes = IoUtils.readFileToByte(file);
-                    zos.write(bytes);
-                    zos.closeEntry();
+            }
+
+            // 写入新增的条目（如META-INF/.xxxxxxxx/下的加密文件、ClassFinal agent文件等）
+            for (java.util.Map.Entry<String, File> entry : fileMap.entrySet()) {
+                if (!written.contains(entry.getKey())) {
+                    writeEntry(zos, entry.getKey(), entry.getValue());
                 }
             }
         } catch (Exception e) {
@@ -83,6 +112,40 @@ public class JarUtils {
             IoUtils.close(zos, out);
         }
         return targetJar;
+    }
+
+    /**
+     * 写入一个zip条目
+     */
+    private static void writeEntry(ZipOutputStream zos, String fileName, File file) throws Exception {
+        //目录，添加一个目录entry
+        if (file.isDirectory()) {
+            ZipEntry ze = new ZipEntry(fileName + "/");
+            ze.setTime(System.currentTimeMillis());
+            zos.putNextEntry(ze);
+            zos.closeEntry();
+        }
+        //jar文件，需要写crc信息
+        else if (fileName.endsWith(".jar")) {
+            byte[] bytes = IoUtils.readFileToByte(file);
+            ZipEntry ze = new ZipEntry(fileName);
+            ze.setMethod(ZipEntry.STORED);
+            ze.setSize(bytes.length);
+            ze.setTime(System.currentTimeMillis());
+            ze.setCrc(IoUtils.crc32(bytes));
+            zos.putNextEntry(ze);
+            zos.write(bytes);
+            zos.closeEntry();
+        }
+        //其他文件直接写入
+        else {
+            ZipEntry ze = new ZipEntry(fileName);
+            ze.setTime(System.currentTimeMillis());
+            zos.putNextEntry(ze);
+            byte[] bytes = IoUtils.readFileToByte(file);
+            zos.write(bytes);
+            zos.closeEntry();
+        }
     }
 
 
@@ -241,8 +304,25 @@ public class JarUtils {
         if (path.startsWith("jar:") || path.startsWith("war:")) {
             path = path.substring(4);
         }
+        // Spring Boot 3.2+ uses nested: URL scheme
+        if (path.startsWith("nested:")) {
+            path = path.substring(7);
+        }
         if (path.startsWith("file:")) {
             path = path.substring(5);
+        }
+
+        // Remove trailing slash before ! for nested jar URLs like /path/to/jar/!BOOT-INF/...
+        // The path after stripping prefixes might be: /E:/path/to/jar/!BOOT-INF/classes!/
+        // We need to strip the trailing / before the first !
+        if (path.contains("/!") ) {
+            int idx = path.indexOf("/!");
+            String before = path.substring(0, idx);
+            String after = path.substring(idx + 1);
+            // Check if before ends with .jar or .war
+            if (before.endsWith(".jar") || before.endsWith(".war")) {
+                path = before + "!" + after;
+            }
         }
 
         //没解压的war包

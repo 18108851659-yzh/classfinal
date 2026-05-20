@@ -17,7 +17,7 @@ public class Const {
             "NativeDecryptor.class",
             "classfinal_native.dll", "libclassfinal_native.so", "libclassfinal_native.jnilib"};
 
-    public static boolean DEBUG = false;
+    public static boolean DEBUG = Boolean.parseBoolean(System.getProperty("classfinal.debug", "false"));
 
     public static void pringInfo() {
         String sysName = System.getProperty("os.name");

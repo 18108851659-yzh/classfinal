@@ -90,6 +90,11 @@ public class ClassUtils {
                     ca.setMaxLocals(locals);
                 }
                 int pos = iterator.insertEx(b.get());
+                // 清除旧异常表，避免旧条目的 end_pc 指向已替换的字节码偏移导致 ClassFormatError
+                ExceptionTable et = ca.getExceptionTable();
+                while (et.size() > 0) {
+                    et.remove(0);
+                }
                 iterator.insert(b.getExceptionTable(), pos);
                 if (rebuild) {
                     m.getMethodInfo().rebuildStackMapIf6(cc.getClassPool(), cc.getClassFile2());

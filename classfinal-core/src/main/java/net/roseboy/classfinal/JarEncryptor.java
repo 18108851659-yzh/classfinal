@@ -52,6 +52,8 @@ public class JarEncryptor {
     private Integer encryptFileCount = null;
     private Map<String, String> resolveClassName = new HashMap<>();
     private String randomPath = null;
+    // 保存原始jar条目顺序，确保重新打包后Spring Boot类加载顺序不变
+    private List<String> originalEntryOrder = new ArrayList<>();
 
     public JarEncryptor(String jarPath) {
         super();
@@ -69,6 +71,9 @@ public class JarEncryptor {
         this.jarOrWar = jarPath.substring(jarPath.lastIndexOf(".") + 1);
         Log.debug("加密类型：" + jarOrWar);
         this.targetDir = new File(jarPath.replace("." + jarOrWar, Const.LIB_JAR_DIR));
+        // 清理可能残留的临时目录，避免旧加密文件干扰
+        IoUtils.delete(this.targetDir);
+        this.targetDir.mkdirs();
         this.targetLibDir = new File(this.targetDir, ("jar".equals(jarOrWar) ? "BOOT-INF" : "WEB-INF")
                 + File.separator + "lib");
         this.targetClassesDir = new File(this.targetDir, ("jar".equals(jarOrWar) ? "BOOT-INF" : "WEB-INF")
@@ -79,6 +84,8 @@ public class JarEncryptor {
         Log.debug("加密路径: META-INF/" + randomPath);
 
         List<String> allFile = JarUtils.unJar(jarPath, this.targetDir.getAbsolutePath());
+        // 保存原始jar条目顺序
+        this.originalEntryOrder = JarUtils.getEntryNames(jarPath);
         allFile.forEach(s -> Log.debug("释放：" + s));
 
         List<String> libJarFiles = new ArrayList<>();
@@ -336,10 +343,16 @@ public class JarEncryptor {
             byte[] bytes = null;
             try {
                 String thisJar = this.getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
+                System.err.println("[ClassFinal] AOP inject: " + clazz + " libDir=" + this.targetLibDir.getAbsolutePath() + " exists=" + this.targetLibDir.exists());
+                if (this.targetLibDir.exists()) {
+                    String[] jars = this.targetLibDir.list((dir, jarName) -> jarName.contains("spring-core"));
+                    System.err.println("[ClassFinal] spring-core jars: " + (jars != null ? java.util.Arrays.toString(jars) : "null"));
+                }
                 bytes = ClassUtils.insertCode(clazz, javaCode, line, this.targetLibDir, new File(thisJar));
+                System.err.println("[ClassFinal] AOP insertCode: " + clazz + " bytes=" + (bytes != null ? bytes.length : "null"));
             } catch (Exception e) {
+                System.err.println("[ClassFinal] AOP insertCode FAILED: " + clazz + " error=" + e.getMessage());
                 e.printStackTrace();
-                Log.debug(e.getClass().getName() + ":" + e.getMessage());
             }
             if (bytes != null) {
                 File cls = new File(this.targetDir, clazz.split("#")[0] + ".class");
@@ -382,7 +395,7 @@ public class JarEncryptor {
         IoUtils.delete(new File(this.targetDir, "META-INF/maven"));
 
         String targetJar = jarPath.replace("." + jarOrWar, "-encrypted." + jarOrWar);
-        String result = JarUtils.doJar(this.targetDir.getAbsolutePath(), targetJar);
+        String result = JarUtils.doJar(this.targetDir.getAbsolutePath(), targetJar, this.originalEntryOrder);
         IoUtils.delete(this.targetDir);
         Log.debug("打包: " + targetJar);
         return result;

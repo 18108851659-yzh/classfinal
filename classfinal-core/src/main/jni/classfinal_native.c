@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/sysctl.h>
-#include <libproc.h>
 #else
 #include <stdio.h>
 #include <fcntl.h>

@@ -39,7 +39,6 @@ jobs:
         run: |
           cd classfinal-core
           chmod +x build_native_mac.sh
-          export JAVA_HOME=$JAVA_HOME_21_arm64
           ./build_native_mac.sh
 
       - name: Verify binary

@@ -15,8 +15,8 @@ public class AgentTransformer implements ClassFileTransformer {
             return classBuffer;
         }
 
-        String projectPath = domain.getCodeSource().getLocation().getPath();
-        projectPath = JarUtils.getRootPath(projectPath);
+        String rawPath = domain.getCodeSource().getLocation().getPath();
+        String projectPath = JarUtils.getRootPath(rawPath);
         if (StrUtils.isEmpty(projectPath)) {
             return classBuffer;
         }
@@ -24,14 +24,14 @@ public class AgentTransformer implements ClassFileTransformer {
         JarDecryptor decryptor = JarDecryptor.getInstance();
         decryptor.init(projectPath);
 
-        className = className.replace("/", ".").replace("\\", ".");
+        String dotName = className.replace("/", ".").replace("\\", ".");
 
-        if (!decryptor.isEncryptedClass(className)) {
+        if (!decryptor.isEncryptedClass(dotName)) {
             return classBuffer;
         }
 
-        byte[] bytes = decryptor.doDecrypt(projectPath, className);
-        if (bytes != null && bytes[0] == -54 && bytes[1] == -2 && bytes[2] == -70 && bytes[3] == -66) {
+        byte[] bytes = decryptor.doDecrypt(projectPath, dotName);
+        if (bytes != null && bytes.length > 3 && bytes[0] == -54 && bytes[1] == -2 && bytes[2] == -70 && bytes[3] == -66) {
             return bytes;
         }
         return classBuffer;
