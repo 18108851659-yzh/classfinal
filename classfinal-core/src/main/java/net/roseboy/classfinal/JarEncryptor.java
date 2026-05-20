@@ -343,16 +343,9 @@ public class JarEncryptor {
             byte[] bytes = null;
             try {
                 String thisJar = this.getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
-                System.err.println("[ClassFinal] AOP inject: " + clazz + " libDir=" + this.targetLibDir.getAbsolutePath() + " exists=" + this.targetLibDir.exists());
-                if (this.targetLibDir.exists()) {
-                    String[] jars = this.targetLibDir.list((dir, jarName) -> jarName.contains("spring-core"));
-                    System.err.println("[ClassFinal] spring-core jars: " + (jars != null ? java.util.Arrays.toString(jars) : "null"));
-                }
                 bytes = ClassUtils.insertCode(clazz, javaCode, line, this.targetLibDir, new File(thisJar));
-                System.err.println("[ClassFinal] AOP insertCode: " + clazz + " bytes=" + (bytes != null ? bytes.length : "null"));
             } catch (Exception e) {
-                System.err.println("[ClassFinal] AOP insertCode FAILED: " + clazz + " error=" + e.getMessage());
-                e.printStackTrace();
+                Log.debug("AOP insertCode FAILED: " + clazz + " error=" + e.getMessage());
             }
             if (bytes != null) {
                 File cls = new File(this.targetDir, clazz.split("#")[0] + ".class");
