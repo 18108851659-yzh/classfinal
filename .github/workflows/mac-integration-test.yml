@@ -2,16 +2,6 @@ name: Mac Integration Test
 
 on:
   workflow_dispatch:
-    inputs:
-      java_version:
-        description: 'JDK version'
-        required: false
-        default: '21'
-        type: choice
-        options:
-          - '11'
-          - '17'
-          - '21'
   push:
     branches: [ main, master ]
     paths:
